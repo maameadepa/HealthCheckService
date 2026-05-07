@@ -1,23 +1,9 @@
-// src/index.js
-//
-// Application entry point. Responsibilities:
-//   1. Load and validate config
-//   2. Start the background Checker
-//   3. Start the HTTP server
-//   4. Wire up graceful shutdown on SIGINT / SIGTERM
-//
-// Graceful shutdown is critical in production: when the orchestrator
-// (Kubernetes, Docker, etc.) sends SIGTERM, we have a few seconds to
-// finish in-flight work and exit cleanly. Crash-on-shutdown looks
-// unprofessional and can corrupt state in real systems.
-
 import { loadConfig } from './config.js';
 import { startChecker } from './checker.js';
 import { createServer } from './server.js';
 import { logger } from './logger.js';
 
 async function main() {
-  // 1. Load config — fail fast if anything is wrong.
   let config;
   try {
     config = loadConfig();
@@ -35,28 +21,22 @@ async function main() {
     'Starting health-check-service'
   );
 
-  // 2. Start the background checker.
   const stopChecker = startChecker({
     endpoints: config.endpoints,
     intervalMs: config.intervalMs,
   });
 
-  // 3. Start the HTTP server.
   const app = createServer(config);
   const server = app.listen(config.port, () => {
     logger.info(`Listening on port ${config.port}`);
   });
 
-  // 4. Graceful shutdown.
-  // SIGTERM is what container orchestrators send to ask a process to stop.
-  // SIGINT is what Ctrl+C sends in a terminal. Handle both.
+  // handle Ctrl+C and docker/container stop signals
   const shutdown = (signal) => {
     logger.info({ signal }, 'Shutdown initiated');
 
-    // Stop the checker first so no new state writes happen.
     stopChecker();
 
-    // Stop accepting new HTTP connections; let in-flight ones finish.
     server.close((err) => {
       if (err) {
         logger.error({ err }, 'Error during server close');
@@ -66,7 +46,7 @@ async function main() {
       process.exit(0);
     });
 
-    // Hard timeout: if shutdown takes more than 10s, force-exit.
+    // force quit if it's taking too long
     setTimeout(() => {
       logger.error('Shutdown timed out, forcing exit');
       process.exit(1);
