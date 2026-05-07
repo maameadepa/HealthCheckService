@@ -1,0 +1,20 @@
+[
+  {
+    "name": "github-api",
+    "url": "https://api.github.com",
+    "timeoutMs": 5000,
+    "degradedThresholdMs": 1000
+  },
+  {
+    "name": "httpbin-ok",
+    "url": "https://httpbin.org/status/200",
+    "timeoutMs": 5000,
+    "degradedThresholdMs": 1500
+  },
+  {
+    "name": "httpbin-down",
+    "url": "https://httpbin.org/status/503",
+    "timeoutMs": 5000,
+    "degradedThresholdMs": 1000
+  }
+]

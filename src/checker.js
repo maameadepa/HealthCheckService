@@ -7,6 +7,8 @@
 // timeouts — without timeouts, a hanging downstream service could stall the checker.
 
 import { store } from './store.js';
+import { recordCheck } from './metrics.js';
+import { logger } from './logger.js';
 
 /**
  * Perform a single health check against one endpoint.
@@ -90,6 +92,8 @@ async function runCheckPass(endpoints) {
   const results = await Promise.all(endpoints.map(checkOne));
   for (const result of results) {
     store.set(result.name, result);
+    recordCheck(result);
+    logger.debug({ check: result }, `Checked ${result.name}: ${result.status}`);
   }
   return results;
 }
@@ -102,14 +106,14 @@ async function runCheckPass(endpoints) {
  */
 export function startChecker({ endpoints, intervalMs }) {
   // Immediate first pass so /health has data ASAP after startup.
-  runCheckPass(endpoints).catch((err) => {
-    console.error('Initial check pass failed:', err);
-  });
+    runCheckPass(endpoints).catch((err) => {
+        logger.error({ err }, 'Initial check pass failed');
+    });
 
   // Schedule subsequent passes.
   const handle = setInterval(() => {
     runCheckPass(endpoints).catch((err) => {
-      console.error('Check pass failed:', err);
+        logger.error({ err }, 'Check pass failed');
     });
   }, intervalMs);
 
